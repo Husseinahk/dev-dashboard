@@ -1,0 +1,73 @@
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Smooth log scrolling */
+pre {
+  scroll-behavior: smooth;
+}
+
+/* Input focus */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #34d399;
+  box-shadow: 0 0 0 1px #34d399;
+}
+
+/* Subtle text selection */
+::selection {
+  background: rgba(16, 185, 129, 0.3);
+}
+
+/* Body base */
+body {
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* Button press feedback */
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* kbd look */
+kbd {
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+/* Collapse animation (x-collapse) fallback */
+[x-cloak] {
+  display: none !important;
+}
+
+/* Smoother toast transitions */
+.toast-enter {
+  animation: slideInRight 0.25s ease-out;
+}
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
+/* Log code styling */
+pre code {
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+}
+
+/* Resize handle hover glow */
+.resize-glow:hover {
+  box-shadow: 0 0 8px 2px rgba(16, 185, 129, 0.5);
+}

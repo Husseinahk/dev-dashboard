@@ -1,0 +1,64 @@
+{
+  "globalSettings": {
+    "port": 3030,
+    "openBrowserOnStart": true,
+    "nvmHome": "",
+    "defaultGroups": [
+      {
+        "name": "Git",
+        "actions": [
+          { "id": "git-status", "label": "Status",   "type": "one-shot", "command": "git status" },
+          { "id": "git-pull",   "label": "Pull",     "type": "one-shot", "command": "git pull" },
+          { "id": "git-fetch",  "label": "Fetch",    "type": "one-shot", "command": "git fetch --all --prune" },
+          { "id": "git-branch", "label": "Branches", "type": "one-shot", "command": "git branch -a" },
+          { "id": "git-log",    "label": "Log (20)", "type": "one-shot", "command": "git log --oneline -20 --graph --decorate" }
+        ]
+      },
+      {
+        "name": "IDE",
+        "actions": [
+          { "id": "open-vscode",   "label": "Open in VS Code",  "type": "open", "command": "code ." },
+          { "id": "open-explorer", "label": "Open in Explorer", "type": "open", "command": "explorer ." }
+        ]
+      }
+    ]
+  },
+  "projects": [
+    {
+      "id": "example-dotnet",
+      "name": "Example .NET Project",
+      "path": "C:\\Projects\\your-project",
+      "nodeVersion": "20",
+      "groups": [
+        {
+          "name": "Backend",
+          "actions": [
+            { "id": "start-api",       "label": "Start API",        "type": "long-running", "command": "dotnet run", "cwd": "src/YourApp.Api" },
+            { "id": "build-solution",  "label": "Build Solution",   "type": "one-shot",     "command": "dotnet build YourApp.sln" },
+            { "id": "ef-add-migration","label": "EF Add Migration", "type": "prompt",       "command": "dotnet ef migrations add {name} --project src/YourApp.Infrastructure --startup-project src/YourApp.Api",
+              "promptFor": [{ "name": "name", "label": "Migration Name", "placeholder": "e.g. 01_initial" }]
+            }
+          ]
+        },
+        {
+          "name": "Frontend",
+          "actions": [
+            { "id": "start-fe", "label": "Start Frontend", "type": "long-running", "command": "npm start",    "cwd": "src/YourApp.Client/ClientApp" },
+            { "id": "build-fe", "label": "Build Frontend", "type": "one-shot",     "command": "npm run build","cwd": "src/YourApp.Client/ClientApp" },
+            { "id": "install",  "label": "npm install",    "type": "one-shot",     "command": "npm install",  "cwd": "src/YourApp.Client/ClientApp" }
+          ]
+        },
+        {
+          "name": "Workflows",
+          "actions": [
+            { "id": "start-all", "label": "Start Everything", "type": "chain", "chain": ["start-api", "start-fe"] }
+          ]
+        }
+      ],
+      "quickLinks": [
+        { "label": "Frontend", "url": "http://localhost:4200" },
+        { "label": "Swagger",  "url": "http://localhost:5000/swagger" }
+      ]
+    }
+  ]
+}

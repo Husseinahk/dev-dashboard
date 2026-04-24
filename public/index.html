@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DevControl</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://unpkg.com/@alpinejs/collapse@3.13.5/dist/cdn.min.js"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.13.5/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen overflow-hidden" x-data="dashboard()" x-init="init()">
+
+  <!-- Header -->
+  <header class="bg-slate-800/95 backdrop-blur border-b border-slate-700 px-5 py-2.5 sticky top-0 z-20">
+    <div class="flex items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <h1 class="text-lg font-bold flex items-center gap-2">
+          <span class="text-emerald-400 text-xl">▶</span>
+          <span class="tracking-tight">DevControl</span>
+        </h1>
+
+        <div class="relative">
+          <select
+            x-model="activeProjectId"
+            @change="onProjectChange()"
+            class="appearance-none bg-slate-700/80 hover:bg-slate-700 border border-slate-600 text-slate-100 rounded-md pl-3 pr-8 py-1.5 text-sm font-medium cursor-pointer transition-colors">
+            <template x-for="p in projects" :key="p.id">
+              <option :value="p.id" x-text="p.name"></option>
+            </template>
+          </select>
+          <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs">▾</span>
+        </div>
+
+        <kbd class="hidden md:inline-flex items-center gap-1 bg-slate-900/60 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-400 font-mono" title="Ctrl+K um Projekt zu wechseln">
+          <span>Ctrl</span><span>+</span><span>K</span>
+        </kbd>
+      </div>
+
+      <div class="flex items-center gap-3 text-sm">
+        <template x-if="currentGit && currentGit.isGitRepo">
+          <span class="inline-flex items-center gap-1.5 bg-slate-900/60 border border-slate-700 px-2 py-1 rounded text-xs font-mono"
+                :title="`branch: ${currentGit.branch}\ndirty: ${currentGit.dirty}\nahead: ${currentGit.ahead} · behind: ${currentGit.behind}`">
+            <span class="text-purple-400">⎇</span>
+            <span class="text-slate-200" x-text="currentGit.branch"></span>
+            <span x-show="currentGit.dirty > 0" class="text-amber-400" x-text="`● ${currentGit.dirty}`"></span>
+            <span x-show="currentGit.ahead > 0" class="text-emerald-400" x-text="`↑${currentGit.ahead}`"></span>
+            <span x-show="currentGit.behind > 0" class="text-red-400" x-text="`↓${currentGit.behind}`"></span>
+          </span>
+        </template>
+        <template x-if="activeProject">
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center gap-1.5 bg-slate-900/60 border border-slate-700 px-2 py-1 rounded text-xs font-mono">
+              <span class="text-emerald-400">●</span>
+              <span class="text-slate-400">Node</span>
+              <span class="text-slate-200" x-text="activeProject.activeNodeVersion || 'system'"></span>
+            </span>
+            <span class="font-mono text-xs text-slate-500 truncate max-w-md" x-text="activeProject.path" :title="activeProject.path"></span>
+          </div>
+        </template>
+        <button @click="openSettingsEditor()"
+                class="ml-2 w-8 h-8 flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                title="Settings (Ctrl+Shift+S)">⚙</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Status-Bar (running processes) -->
+  <div class="bg-slate-800/30 border-b border-slate-700 px-5 py-1.5" x-show="runningKeys.length > 0" x-transition>
+    <div class="flex items-center gap-2 text-xs">
+      <span class="text-slate-500 font-medium">RUNNING</span>
+      <template x-for="key in runningKeys" :key="key">
+        <span :class="isReady(key) ? 'bg-emerald-900/50 border-emerald-500/60 text-emerald-200' : 'bg-emerald-900/30 border-emerald-700/40 text-emerald-300'"
+              class="inline-flex items-center gap-1 border pl-2 pr-1 py-0.5 rounded font-mono transition-colors hover:bg-emerald-900/50">
+          <span :class="isReady(key) ? '' : 'animate-pulse'" x-text="isReady(key) ? '✓' : '●'"></span>
+          <span x-text="actionLabelFor(key)"></span>
+          <button @click="restartAction(key)"
+                  class="ml-1 w-4 h-4 flex items-center justify-center rounded text-emerald-400 hover:text-white hover:bg-amber-500/80 transition-colors"
+                  title="Restart">↻</button>
+          <button @click="stopAction(key)"
+                  class="w-4 h-4 flex items-center justify-center rounded text-emerald-400 hover:text-white hover:bg-red-500/80 transition-colors"
+                  title="Stop">✕</button>
+        </span>
+      </template>
+    </div>
+  </div>
+
+  <!-- Main Layout -->
+  <main class="grid gap-4 p-4"
+        :style="`grid-template-columns: 1fr ${logWidth}px; height: calc(100vh - ${runningKeys.length > 0 ? '6.5rem' : '4rem'});`">
+
+    <!-- Left: Action Cards -->
+    <div class="space-y-3 overflow-y-auto pr-1">
+
+      <!-- Quick Links -->
+      <template x-if="activeProject && activeProject.quickLinks && activeProject.quickLinks.length > 0">
+        <div class="bg-slate-800/40 rounded-lg p-2 border border-slate-700/50">
+          <div class="flex flex-wrap gap-1.5">
+            <template x-for="link in activeProject.quickLinks" :key="link.url">
+              <a :href="link.url" target="_blank"
+                 :class="hasReadyActionForUrl(link.url) ? 'bg-emerald-900/30 border border-emerald-700/50 hover:bg-emerald-800/40' : 'bg-slate-700/70 hover:bg-slate-600 border border-transparent'"
+                 class="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded text-slate-200 transition-colors group">
+                <span :class="hasReadyActionForUrl(link.url) ? 'text-emerald-400 animate-pulse' : 'text-slate-400 group-hover:text-emerald-400'" class="transition-colors"
+                      x-text="hasReadyActionForUrl(link.url) ? '●' : '↗'"></span>
+                <span x-text="link.label" class="font-medium"></span>
+              </a>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- Action Groups -->
+      <template x-for="group in (activeProject ? activeProject.groups : [])" :key="group.name">
+        <section class="bg-slate-800/70 rounded-lg border border-slate-700/60 overflow-hidden transition-all">
+          <button @click="toggleGroup(group.name)"
+                  class="w-full flex items-center justify-between px-3 py-2 bg-slate-800 border-b border-slate-700/60 hover:bg-slate-700/50 transition-colors text-left">
+            <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+              <span class="text-xs text-slate-500 transition-transform inline-block"
+                    :class="isGroupCollapsed(group.name) ? 'rotate-[-90deg]' : ''">▾</span>
+              <span x-text="group.name"></span>
+              <span class="text-xs text-slate-500 font-normal" x-text="`(${group.actions.length})`"></span>
+            </h2>
+          </button>
+          <div class="p-2.5 grid grid-cols-2 gap-2" x-show="!isGroupCollapsed(group.name)" x-collapse>
+            <template x-for="action in group.actions" :key="action.id">
+              <button
+                @click="runAction(action)"
+                :class="[
+                  'group text-left rounded-md px-3 py-2 text-sm transition-all flex items-center justify-between border',
+                  isRunning(action.id) && action.type === 'long-running'
+                    ? 'bg-emerald-900/30 border-emerald-700/50 text-emerald-300 hover:bg-red-900/30 hover:border-red-700/50 hover:text-red-300'
+                    : 'bg-slate-700/50 hover:bg-slate-700 border-slate-700 hover:border-slate-600 text-slate-100 hover:shadow-lg'
+                ]"
+                :title="(isRunning(action.id) && action.type === 'long-running' ? 'Klick zum Stoppen · ' : '') + action.command"
+              >
+                <span class="flex items-center gap-2 min-w-0">
+                  <span class="text-base" x-text="actionIcon(action)"></span>
+                  <span class="truncate" x-text="action.label"></span>
+                </span>
+                <template x-if="isRunning(action.id) && action.type === 'long-running'">
+                  <span class="text-xs flex items-center gap-1 shrink-0 ml-2">
+                    <span class="text-emerald-400 animate-pulse group-hover:hidden">●</span>
+                    <span class="text-red-400 hidden group-hover:inline">■</span>
+                  </span>
+                </template>
+              </button>
+            </template>
+          </div>
+        </section>
+      </template>
+
+      <!-- Empty state -->
+      <template x-if="!activeProject || !activeProject.groups || activeProject.groups.length === 0">
+        <div class="bg-slate-800/40 border border-slate-700/50 rounded-lg p-8 text-center">
+          <div class="text-4xl mb-2 opacity-40">📦</div>
+          <p class="text-slate-400 text-sm mb-3">Keine Actions konfiguriert.</p>
+          <button @click="openSettingsEditor()" class="text-emerald-400 hover:text-emerald-300 text-sm underline">
+            Settings öffnen →
+          </button>
+        </div>
+      </template>
+
+    </div>
+
+    <!-- Resize Handle -->
+    <div class="absolute top-0 bottom-0 w-1 cursor-col-resize hover:bg-emerald-600/50 transition-colors z-10"
+         :style="`left: calc(100% - ${logWidth + 16}px);`"
+         @mousedown="startResize($event)"
+         x-show="false"></div>
+
+    <!-- Right: Log Panel -->
+    <div class="bg-slate-950 rounded-lg border border-slate-700 flex flex-col overflow-hidden relative">
+      <!-- Resize grip -->
+      <div class="absolute -left-1 top-0 bottom-0 w-2 cursor-col-resize hover:bg-emerald-500/30 transition-colors z-10 group"
+           @mousedown="startResize($event)">
+        <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-8 bg-slate-600 group-hover:bg-emerald-400 rounded-full transition-colors"></div>
+      </div>
+
+      <!-- Log Tabs -->
+      <div class="flex items-center border-b border-slate-800 bg-slate-900/60">
+        <div class="flex-1 flex overflow-x-auto">
+          <template x-for="tab in logTabs" :key="tab">
+            <button
+              @click="activeLogTab = tab"
+              :class="[
+                'group relative px-3 py-2 text-xs font-mono whitespace-nowrap border-b-2 transition-colors',
+                activeLogTab === tab
+                  ? 'border-emerald-400 text-emerald-300 bg-slate-950'
+                  : 'border-transparent text-slate-500 hover:text-slate-300'
+              ]"
+            >
+              <span x-text="tabLabel(tab)"></span>
+              <span @click.stop="closeTab(tab)"
+                    class="ml-2 w-4 h-4 inline-flex items-center justify-center rounded text-slate-600 hover:text-white hover:bg-red-500/60">×</span>
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <!-- Log Toolbar -->
+      <div class="flex items-center gap-2 px-2 py-1 bg-slate-900/40 border-b border-slate-800 text-xs" x-show="activeLogTab">
+        <div class="relative flex-1">
+          <input type="text"
+                 x-model="logSearch"
+                 x-ref="logSearchInput"
+                 placeholder="Search in logs... (Ctrl+/)"
+                 class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs font-mono focus:border-emerald-500" />
+          <span x-show="logSearch" class="absolute right-1 top-1/2 -translate-y-1/2 text-slate-500 text-xs">
+            <span x-text="filteredLogLines.length + ' matches'"></span>
+            <button @click="logSearch=''" class="ml-2 hover:text-white">✕</button>
+          </span>
+        </div>
+        <label class="flex items-center gap-1 cursor-pointer text-slate-400 hover:text-white">
+          <input type="checkbox" x-model="autoScroll" class="w-3 h-3" />
+          <span>Auto-scroll</span>
+        </label>
+        <button @click="copyActiveLog()" class="text-slate-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-slate-700" title="Copy">📋</button>
+        <button @click="clearActiveTab()" class="text-slate-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-slate-700" title="Clear">⌫</button>
+      </div>
+
+      <!-- Log Content -->
+      <pre
+        x-ref="logBox"
+        class="flex-1 overflow-y-auto p-3 text-xs font-mono whitespace-pre-wrap text-slate-300 leading-relaxed"
+        x-show="activeLogTab"
+        x-html="highlightedLog"
+      ></pre>
+
+      <!-- Empty state for logs -->
+      <div class="flex-1 flex items-center justify-center p-6 text-center" x-show="!activeLogTab">
+        <div>
+          <div class="text-4xl mb-2 opacity-30">📟</div>
+          <p class="text-slate-500 text-sm">Kein aktiver Output.</p>
+          <p class="text-slate-600 text-xs mt-1">Klicke auf eine Action um zu starten.</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Toast Notifications -->
+  <div class="fixed bottom-4 right-4 z-50 space-y-2 pointer-events-none">
+    <template x-for="toast in toasts" :key="toast.id">
+      <div x-transition.opacity
+           :class="[
+             'pointer-events-auto px-4 py-2.5 rounded-lg shadow-2xl border flex items-center gap-2 min-w-[240px] backdrop-blur',
+             toast.type === 'success' ? 'bg-emerald-900/80 border-emerald-700 text-emerald-100' :
+             toast.type === 'error' ? 'bg-red-900/80 border-red-700 text-red-100' :
+             'bg-slate-800/80 border-slate-700 text-slate-100'
+           ]">
+        <span x-text="toast.type === 'success' ? '✓' : toast.type === 'error' ? '✕' : 'ℹ'" class="text-lg"></span>
+        <span class="text-sm flex-1" x-text="toast.message"></span>
+      </div>
+    </template>
+  </div>
+
+  <!-- Prompt Modal -->
+  <div
+    x-show="prompt.open"
+    @keydown.escape.window="prompt.open = false"
+    class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-30"
+    style="display:none">
+    <div class="bg-slate-800 rounded-lg p-6 w-96 border border-slate-700 shadow-2xl" @click.stop>
+      <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+        <span class="text-amber-400">✎</span>
+        <span x-text="prompt.action ? prompt.action.label : ''"></span>
+      </h3>
+      <form @submit.prevent="runPromptedAction()">
+        <template x-for="p in (prompt.action ? prompt.action.promptFor : [])" :key="p.name">
+          <div class="mb-3">
+            <label class="block text-sm text-slate-300 mb-1" x-text="p.label"></label>
+            <input
+              type="text"
+              x-model="prompt.values[p.name]"
+              :placeholder="p.placeholder || ''"
+              class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm"
+              x-init="$nextTick(() => $el.focus())"
+            />
+          </div>
+        </template>
+        <div class="flex justify-end gap-2 mt-4">
+          <button type="button" @click="prompt.open = false" class="px-3 py-1.5 text-sm text-slate-400 hover:text-white">Cancel</button>
+          <button type="submit" class="px-4 py-1.5 text-sm bg-emerald-600 hover:bg-emerald-500 rounded font-medium">Run</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Command Palette (Ctrl+K) -->
+  <div
+    x-show="paletteOpen"
+    @keydown.escape.window="paletteOpen = false"
+    class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-start justify-center pt-24"
+    @click="paletteOpen = false"
+    style="display:none">
+    <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-2xl w-[520px]" @click.stop>
+      <div class="p-3 border-b border-slate-700">
+        <input type="text"
+               x-model="paletteQuery"
+               x-ref="paletteInput"
+               placeholder="Switch project..."
+               class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm"
+               @keydown.down.prevent="paletteIndex = Math.min(paletteIndex + 1, filteredPaletteProjects.length - 1)"
+               @keydown.up.prevent="paletteIndex = Math.max(paletteIndex - 1, 0)"
+               @keydown.enter.prevent="selectPaletteProject()"
+        />
+      </div>
+      <div class="max-h-80 overflow-y-auto py-1">
+        <template x-for="(p, idx) in filteredPaletteProjects" :key="p.id">
+          <button @click="activeProjectId = p.id; onProjectChange(); paletteOpen = false"
+                  :class="idx === paletteIndex ? 'bg-slate-700' : 'hover:bg-slate-700/50'"
+                  class="w-full text-left px-3 py-2 text-sm flex items-center gap-2">
+            <span class="text-emerald-400">▶</span>
+            <span class="font-medium" x-text="p.name"></span>
+            <span class="text-xs text-slate-500 ml-auto font-mono" x-text="p.activeNodeVersion || ''"></span>
+          </button>
+        </template>
+        <div x-show="filteredPaletteProjects.length === 0" class="text-center text-slate-500 text-sm py-6">
+          No projects match.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal (Structured Editor) -->
+  <div
+    x-show="openSettings"
+    @keydown.escape.window="openSettings = false"
+    class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-30 p-4"
+    style="display:none">
+    <div class="bg-slate-800 rounded-lg w-full max-w-7xl h-[92vh] flex flex-col border border-slate-700 shadow-2xl overflow-hidden">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-3 border-b border-slate-700 bg-slate-800">
+        <h3 class="text-lg font-semibold flex items-center gap-2">
+          <span class="text-emerald-400">⚙</span> Settings
+        </h3>
+        <div class="flex items-center gap-3">
+          <span x-show="settingsDirty" class="text-xs text-amber-400 flex items-center gap-1">
+            <span class="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse"></span>
+            unsaved changes
+          </span>
+          <button @click="cancelSettings()" class="px-3 py-1.5 text-sm text-slate-400 hover:text-white">Cancel</button>
+          <button @click="saveConfig()" class="px-4 py-1.5 text-sm bg-emerald-600 hover:bg-emerald-500 rounded font-medium">Save</button>
+          <button @click="cancelSettings()" class="text-slate-400 hover:text-white text-2xl leading-none ml-2">×</button>
+        </div>
+      </div>
+
+      <div class="flex-1 flex min-h-0">
+        <!-- Left: Tabs -->
+        <nav class="w-52 border-r border-slate-700 bg-slate-900/50 p-3 flex flex-col gap-1">
+          <button
+            @click="settingsTab = 'projects'"
+            :class="settingsTab === 'projects' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'"
+            class="text-left px-3 py-2 rounded text-sm">📁 Projects</button>
+          <button
+            @click="settingsTab = 'defaults'"
+            :class="settingsTab === 'defaults' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'"
+            class="text-left px-3 py-2 rounded text-sm">⚡ Default Groups</button>
+          <button
+            @click="settingsTab = 'global'"
+            :class="settingsTab === 'global' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'"
+            class="text-left px-3 py-2 rounded text-sm">🌐 Global Settings</button>
+          <button
+            @click="settingsTab = 'json'"
+            :class="settingsTab === 'json' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'"
+            class="text-left px-3 py-2 rounded text-sm mt-auto">{} JSON Preview</button>
+        </nav>
+
+        <!-- Right: Content -->
+        <div class="flex-1 flex min-h-0">
+
+          <!-- ===== TAB: PROJECTS ===== -->
+          <div x-show="settingsTab === 'projects'" class="flex-1 flex min-h-0">
+            <aside class="w-64 border-r border-slate-700 bg-slate-900/30 flex flex-col">
+              <div class="p-3 border-b border-slate-700">
+                <button @click="addProject()" class="w-full px-3 py-1.5 text-sm bg-emerald-600 hover:bg-emerald-500 rounded transition-colors">+ Add Project</button>
+              </div>
+              <div class="flex-1 overflow-y-auto p-2 space-y-1">
+                <template x-for="(p, idx) in editConfig.projects" :key="p.id">
+                  <button
+                    @click="editingProjectIdx = idx"
+                    :class="editingProjectIdx === idx ? 'bg-slate-700 border-slate-600' : 'hover:bg-slate-700/50 border-transparent'"
+                    class="w-full text-left px-3 py-2 rounded text-sm border transition-colors">
+                    <div class="font-medium" x-text="p.name || '(unnamed)'"></div>
+                    <div class="text-xs text-slate-500 font-mono truncate" x-text="p.path"></div>
+                  </button>
+                </template>
+              </div>
+            </aside>
+
+            <section class="flex-1 overflow-y-auto p-6" x-show="currentEditingProject">
+              <template x-if="currentEditingProject">
+                <div>
+                  <div class="flex items-center justify-between mb-4">
+                    <h4 class="text-base font-semibold">Project Details</h4>
+                    <button @click="deleteProject()" class="text-xs text-red-400 hover:text-red-300 flex items-center gap-1">🗑 Delete Project</button>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-3 mb-6">
+                    <label class="block">
+                      <span class="block text-xs text-slate-400 mb-1">Name</span>
+                      <input type="text" x-model="currentEditingProject.name" @input="markDirty()" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm" />
+                    </label>
+                    <label class="block">
+                      <span class="block text-xs text-slate-400 mb-1">ID (internal)</span>
+                      <input type="text" x-model="currentEditingProject.id" @input="markDirty()" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm font-mono" />
+                    </label>
+                    <label class="block col-span-2">
+                      <span class="block text-xs text-slate-400 mb-1">Path</span>
+                      <input type="text" x-model="currentEditingProject.path" @input="markDirty()" placeholder="C:\Projects\..." class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm font-mono" />
+                    </label>
+                    <label class="block">
+                      <span class="block text-xs text-slate-400 mb-1">Node Version <span class="text-slate-500">(optional, z.B. "14" oder "20.11.0")</span></span>
+                      <input type="text" x-model="currentEditingProject.nodeVersion" @input="markDirty()" placeholder="14" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm font-mono" />
+                    </label>
+                  </div>
+
+                  <div class="mb-6">
+                    <div class="flex items-center justify-between mb-2">
+                      <h4 class="text-base font-semibold">Action Groups</h4>
+                      <button @click="addGroup(currentEditingProject)" class="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded">+ Group</button>
+                    </div>
+                    <div class="space-y-3">
+                      <template x-for="(group, gIdx) in (currentEditingProject.groups || [])" :key="gIdx">
+                        <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-3">
+                          <div class="flex items-center gap-2 mb-2">
+                            <input type="text" x-model="group.name" @input="markDirty()" placeholder="Group name (e.g. Backend)" class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm font-medium" />
+                            <button @click="addAction(group)" class="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded">+ Action</button>
+                            <button @click="removeGroup(currentEditingProject, gIdx)" class="text-xs text-red-400 hover:text-red-300 px-2">✕</button>
+                          </div>
+                          <div class="space-y-2">
+                            <template x-for="(action, aIdx) in (group.actions || [])" :key="aIdx">
+                              <div class="bg-slate-800/60 border border-slate-700 rounded p-2">
+                                <div class="grid grid-cols-12 gap-2">
+                                  <input type="text" x-model="action.label" @input="markDirty()" placeholder="Label" class="col-span-4 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" />
+                                  <select x-model="action.type" @change="markDirty()" class="col-span-2 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs">
+                                    <option value="long-running">long-running</option>
+                                    <option value="one-shot">one-shot</option>
+                                    <option value="open">open</option>
+                                    <option value="prompt">prompt</option>
+                                    <option value="chain">chain</option>
+                                  </select>
+                                  <input type="text" x-model="action.cwd" @input="markDirty()" placeholder="cwd — relativer Pfad vom Projekt-Root (z.B. src/.../ClientApp)" title="Arbeitsverzeichnis RELATIV zum Projekt-Root (NICHT 'cd ...'). Leer = Projekt-Root." class="col-span-5 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs font-mono" />
+                                  <button @click="removeAction(group, aIdx)" class="col-span-1 text-red-400 hover:text-red-300 text-xs">✕</button>
+                                </div>
+                                <input type="text" x-model="action.command" @input="markDirty()" placeholder="command (e.g. npm start)" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs font-mono" />
+                                <div x-show="action.type === 'chain'" class="mt-2 pl-3 border-l-2 border-sky-700/40">
+                                  <div class="text-xs text-sky-400 mb-1">Chain Targets</div>
+                                  <p class="text-xs text-slate-500 mb-1">Action-IDs zum sequentiell starten (ein Action pro Zeile).</p>
+                                  <textarea x-model="action._chainText" @input="action.chain = action._chainText.split('\n').map(s=>s.trim()).filter(Boolean); markDirty()"
+                                            :value="(action.chain || []).join('\n')"
+                                            rows="3"
+                                            placeholder="start-api&#10;start-fe"
+                                            class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs font-mono"></textarea>
+                                </div>
+                                <div x-show="action.type === 'prompt'" class="mt-2 pl-3 border-l-2 border-amber-700/40">
+                                  <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs text-amber-400">Prompt Parameters</span>
+                                    <button @click="addPromptField(action)" class="text-xs text-slate-400 hover:text-white">+ Param</button>
+                                  </div>
+                                  <template x-for="(p, pIdx) in (action.promptFor || [])" :key="pIdx">
+                                    <div class="grid grid-cols-12 gap-1 mb-1">
+                                      <input type="text" x-model="p.name" @input="markDirty()" placeholder="name" class="col-span-3 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs font-mono" />
+                                      <input type="text" x-model="p.label" @input="markDirty()" placeholder="Label" class="col-span-4 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" />
+                                      <input type="text" x-model="p.placeholder" @input="markDirty()" placeholder="placeholder" class="col-span-4 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" />
+                                      <button @click="removePromptField(action, pIdx)" class="col-span-1 text-red-400 hover:text-red-300 text-xs">✕</button>
+                                    </div>
+                                  </template>
+                                  <p class="text-xs text-slate-500 mt-1">Use <code class="bg-slate-900 px-1 rounded">{name}</code> in command to substitute.</p>
+                                </div>
+                              </div>
+                            </template>
+                            <div x-show="!group.actions || group.actions.length === 0" class="text-xs text-slate-500 italic">No actions. Click "+ Action" to add one.</div>
+                          </div>
+                        </div>
+                      </template>
+                      <div x-show="!currentEditingProject.groups || currentEditingProject.groups.length === 0" class="text-sm text-slate-500 italic">No groups. Click "+ Group" to add one.</div>
+                    </div>
+                  </div>
+
+                  <div class="mb-6">
+                    <div class="flex items-center justify-between mb-2">
+                      <h4 class="text-base font-semibold">Quick Links</h4>
+                      <button @click="addQuickLink(currentEditingProject)" class="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded">+ Link</button>
+                    </div>
+                    <div class="space-y-2">
+                      <template x-for="(link, lIdx) in (currentEditingProject.quickLinks || [])" :key="lIdx">
+                        <div class="flex gap-2">
+                          <input type="text" x-model="link.label" @input="markDirty()" placeholder="Label" class="w-40 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" />
+                          <input type="text" x-model="link.url" @input="markDirty()" placeholder="https://..." class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs font-mono" />
+                          <button @click="removeQuickLink(currentEditingProject, lIdx)" class="text-red-400 hover:text-red-300 text-xs px-2">✕</button>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+              </template>
+              <div x-show="!currentEditingProject" class="text-slate-500 italic">Kein Projekt ausgewählt. Wähle links eins oder klicke "+ Add Project".</div>
+            </section>
+          </div>
+
+          <!-- ===== TAB: DEFAULT GROUPS ===== -->
+          <div x-show="settingsTab === 'defaults'" class="flex-1 overflow-y-auto p-6">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h4 class="text-base font-semibold">Default Groups</h4>
+                <p class="text-xs text-slate-400">Diese Groups erscheinen in allen Projekten (außer ein Projekt überschreibt sie mit gleichem Namen).</p>
+              </div>
+              <button @click="addDefaultGroup()" class="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded">+ Group</button>
+            </div>
+            <div class="space-y-3">
+              <template x-for="(group, gIdx) in defaultGroups" :key="gIdx">
+                <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-3">
+                  <div class="flex items-center gap-2 mb-2">
+                    <input type="text" x-model="group.name" @input="markDirty()" placeholder="Group name" class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm font-medium" />
+                    <button @click="addAction(group)" class="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded">+ Action</button>
+                    <button @click="removeDefaultGroup(gIdx)" class="text-xs text-red-400 hover:text-red-300 px-2">✕</button>
+                  </div>
+                  <div class="space-y-2">
+                    <template x-for="(action, aIdx) in (group.actions || [])" :key="aIdx">
+                      <div class="bg-slate-800/60 border border-slate-700 rounded p-2">
+                        <div class="grid grid-cols-12 gap-2">
+                          <input type="text" x-model="action.label" @input="markDirty()" placeholder="Label" class="col-span-4 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" />
+                          <select x-model="action.type" @change="markDirty()" class="col-span-2 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs">
+                            <option value="long-running">long-running</option>
+                            <option value="one-shot">one-shot</option>
+                            <option value="open">open</option>
+                            <option value="prompt">prompt</option>
+                          </select>
+                          <input type="text" x-model="action.cwd" @input="markDirty()" placeholder="cwd — relativer Pfad vom Projekt-Root (z.B. src/.../ClientApp)" class="col-span-5 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs font-mono" />
+                          <button @click="removeAction(group, aIdx)" class="col-span-1 text-red-400 hover:text-red-300 text-xs">✕</button>
+                        </div>
+                        <input type="text" x-model="action.command" @input="markDirty()" placeholder="command" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs font-mono" />
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- ===== TAB: GLOBAL ===== -->
+          <div x-show="settingsTab === 'global'" class="flex-1 overflow-y-auto p-6">
+            <h4 class="text-base font-semibold mb-4">Global Settings</h4>
+            <div class="space-y-4 max-w-xl">
+              <label class="block">
+                <span class="block text-xs text-slate-400 mb-1">Port</span>
+                <input type="number" x-model.number="editConfig.globalSettings.port" @input="markDirty()" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm font-mono" />
+                <span class="text-xs text-slate-500">Nach Änderung den Server neu starten (start.bat).</span>
+              </label>
+              <label class="block">
+                <span class="block text-xs text-slate-400 mb-1">Open browser on start</span>
+                <input type="checkbox" x-model="editConfig.globalSettings.openBrowserOnStart" @change="markDirty()" class="w-4 h-4" />
+              </label>
+              <label class="block">
+                <span class="block text-xs text-slate-400 mb-1">NVM Home <span class="text-slate-500">(leer = Standard: %APPDATA%\nvm)</span></span>
+                <input type="text" x-model="editConfig.globalSettings.nvmHome" @input="markDirty()" placeholder="C:\Users\...\AppData\Roaming\nvm" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm font-mono" />
+              </label>
+            </div>
+          </div>
+
+          <!-- ===== TAB: JSON ===== -->
+          <div x-show="settingsTab === 'json'" class="flex-1 overflow-y-auto p-6">
+            <h4 class="text-base font-semibold mb-2">JSON Preview (read-only)</h4>
+            <p class="text-xs text-slate-400 mb-3">So wird das gerade in die Datei gespeichert. Click "Copy" um zu kopieren.</p>
+            <button @click="copyJson()" class="mb-2 text-xs px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded">📋 Copy</button>
+            <pre class="bg-slate-950 border border-slate-700 rounded p-3 font-mono text-xs overflow-auto" x-text="JSON.stringify(editConfig, null, 2)"></pre>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
