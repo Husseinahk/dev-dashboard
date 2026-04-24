@@ -7,6 +7,7 @@ $ErrorActionPreference = 'Stop'
 
 $scriptDir  = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $startBat   = Join-Path $scriptDir 'start.bat'
+$stopBat    = Join-Path $scriptDir 'stop.bat'
 $icoSource  = Join-Path $scriptDir 'devcontrol.ico'
 $desktopDir = [Environment]::GetFolderPath('Desktop')
 $startMenu  = [Environment]::GetFolderPath('Programs')
@@ -50,15 +51,21 @@ if (-not (Test-Path $startBat)) {
     exit 1
 }
 
-Write-Host "[1/3] Desktop shortcut..." -ForegroundColor Yellow
+Write-Host "[1/4] Desktop shortcuts (Start + Stop)..." -ForegroundColor Yellow
 New-DevControlShortcut -Target $startBat -WorkingDir $scriptDir -Location $desktopDir -Name 'DevControl' -Description 'DevControl Dashboard'
+if (Test-Path $stopBat) {
+    New-DevControlShortcut -Target $stopBat -WorkingDir $scriptDir -Location $desktopDir -Name 'DevControl - Stop' -Description 'Stop DevControl Dashboard'
+}
 
 Write-Host ""
-Write-Host "[2/3] Start menu entry..." -ForegroundColor Yellow
+Write-Host "[2/4] Start menu entries..." -ForegroundColor Yellow
 New-DevControlShortcut -Target $startBat -WorkingDir $scriptDir -Location $startMenu -Name 'DevControl' -Description 'DevControl Dashboard'
+if (Test-Path $stopBat) {
+    New-DevControlShortcut -Target $stopBat -WorkingDir $scriptDir -Location $startMenu -Name 'DevControl - Stop' -Description 'Stop DevControl Dashboard'
+}
 
 Write-Host ""
-Write-Host "[3/3] Autostart on Windows startup?" -ForegroundColor Yellow
+Write-Host "[3/4] Autostart on Windows startup?" -ForegroundColor Yellow
 $autostart = Read-Host "  Should DevControl auto-start with Windows? (y/n)"
 if ($autostart -match '^(j|y|ja|yes)$') {
     New-DevControlShortcut -Target $startBat -WorkingDir $scriptDir -Location $startupDir -Name 'DevControl' -Description 'DevControl Dashboard (Autostart)'
