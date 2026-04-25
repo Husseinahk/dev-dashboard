@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "devcontrol",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["backend/dist/index.js"],
+      "port": 3030
+    }
+  ]
+}

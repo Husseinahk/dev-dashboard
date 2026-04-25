@@ -61,7 +61,12 @@ export function useProcessTabs() {
 
   // Initial load
   useEffect(() => {
-    api.listTabs().then(tabs => dispatch({ type: 'replace', tabs })).catch(() => {});
+    api.listTabs()
+      .then(res => {
+        const tabs = Array.isArray(res) ? res : (res?.tabs ?? res?.processes ?? []);
+        dispatch({ type: 'replace', tabs });
+      })
+      .catch(() => {});
   }, []);
 
   const handleEvent = useCallback((ev: WSEvent) => dispatch({ type: 'event', ev }), []);
