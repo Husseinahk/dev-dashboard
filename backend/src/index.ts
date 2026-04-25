@@ -487,18 +487,52 @@ new TerminalSocket(wssTerminal);
 
 const wssEvents = new WebSocketServer({ noServer: true });
 wssEvents.on('connection', (ws) => {
-  const fwd = (event: string) => (payload: any) => {
+  const safeSend = (obj: any) => {
     if (ws.readyState === ws.OPEN) {
-      try { ws.send(JSON.stringify({ event, ...payload })); } catch {}
+      try { ws.send(JSON.stringify(obj)); } catch {}
     }
   };
-  const handlers: { [k: string]: (p: any) => void } = {
-    'process:log': fwd('log'),
-    'process:status-update': fwd('status'),
-    'process:ready': fwd('ready'),
-    'process:crash': fwd('crash'),
+
+  // Translate backend events → frontend WSEvent contract (per-tab events).
+  const onLog = (p: { id: string; type: string; data: string }) => {
+    safeSend({
+      event: 'log',
+      tabId: p.id,
+      stream: p.type === 'stderr' ? 'stderr' : 'stdout',
+      text: p.data,
+      ts: Date.now(),
+    });
   };
-  for (const [k, h] of Object.entries(handlers)) bus.on(k, h);
+
+  const onStatusUpdate = (p: { processes: any[] }) => {
+    for (const proc of p.processes || []) {
+      safeSend({
+        event: 'status',
+        tabId: proc.id,
+        status: proc.status,
+        pid: proc.pid,
+        exitCode: proc.exitCode ?? null,
+        name: proc.name,
+        projectId: proc.projectId,
+        actionId: proc.actionId,
+        port: proc.port,
+      });
+    }
+  };
+
+  const onReady = (p: { id: string; name: string }) => {
+    const proc = processManager.getProcess(p.id);
+    safeSend({ event: 'ready', tabId: p.id, port: proc?.port });
+  };
+
+  const onCrash = (p: { id: string; name: string; code: number | null }) => {
+    safeSend({ event: 'crash', tabId: p.id, name: p.name, exitCode: p.code });
+  };
+
+  bus.on('process:log', onLog);
+  bus.on('process:status-update', onStatusUpdate);
+  bus.on('process:ready', onReady);
+  bus.on('process:crash', onCrash);
 
   // Push system stats every 2s
   const statTimer = setInterval(async () => {
@@ -506,18 +540,27 @@ wssEvents.on('connection', (ws) => {
     const snap = getSystemSnapshot();
     const pids = processManager.getProcesses().map(p => p.pid).filter(Boolean) as number[];
     const procStats = await getProcessStats(pids);
-    try { ws.send(JSON.stringify({ event: 'system', ...snap, processStats: procStats })); } catch {}
+    safeSend({ event: 'system', snapshot: snap, processes: procStats });
   }, 2000);
 
   ws.on('close', () => {
-    for (const [k, h] of Object.entries(handlers)) bus.off(k, h);
+    bus.off('process:log', onLog);
+    bus.off('process:status-update', onStatusUpdate);
+    bus.off('process:ready', onReady);
+    bus.off('process:crash', onCrash);
     clearInterval(statTimer);
   });
 
-  // Initial snapshot
-  try {
-    ws.send(JSON.stringify({ event: 'status', processes: processManager.getProcesses() }));
-  } catch {}
+  // Initial snapshot — emit a status event per process so the reducer hydrates immediately.
+  for (const proc of processManager.getProcesses()) {
+    safeSend({
+      event: 'status',
+      tabId: proc.id,
+      status: proc.status,
+      pid: proc.pid,
+      exitCode: proc.exitCode ?? null,
+    });
+  }
 });
 
 server.on('upgrade', (req, socket, head) => {

@@ -7,18 +7,22 @@ import { Button } from '../ui/Button';
 
 interface Props {
   onClose?: () => void;
+  cwd?: string;
 }
 
 // Simple line-based terminal (no node-pty). Sufficient for ad-hoc commands.
 // For full TTY (vim, less, color spinners) we'd need xterm.js + node-pty.
-export function TerminalPanel({ onClose }: Props) {
+export function TerminalPanel({ onClose, cwd }: Props) {
   const [lines, setLines] = useState<string[]>([]);
   const [input, setInput] = useState('');
   const [history, setHistory] = useState<string[]>([]);
   const [histIdx, setHistIdx] = useState<number | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
 
-  const { status, send } = useWebSocket(wsUrls.terminal(), (data) => {
+  // Reset on cwd change so a new socket spawns with the new cwd.
+  useEffect(() => { setLines([]); }, [cwd]);
+
+  const { status, send } = useWebSocket(wsUrls.terminal(cwd), (data) => {
     const text = typeof data === 'string' ? data : String(data);
     setLines(prev => [...prev, stripAnsi(text)].slice(-2000));
   });

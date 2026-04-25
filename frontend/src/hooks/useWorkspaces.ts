@@ -22,7 +22,20 @@ function normalize(raw: any[]): Project[] {
   }));
 }
 
-const GROUP_ORDER = ['Pinned', 'Run', 'Node', 'Build', 'Docker', '.NET', 'Git', 'IDE', 'Custom'];
+const GROUP_ORDER = [
+  'Pinned',
+  'Frontend',
+  'Backend',
+  'Run',
+  'Solution',
+  'Node',
+  'Build',
+  'Docker',
+  '.NET',
+  'Git',
+  'IDE',
+  'Custom',
+];
 
 function groupActions(actions: ProjectAction[]): ProjectActionGroup[] {
   const map = new Map<string, ProjectAction[]>();

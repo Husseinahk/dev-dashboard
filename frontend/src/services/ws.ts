@@ -14,5 +14,8 @@ function wsUrl(path: string): string {
 
 export const wsUrls = {
   events: () => wsUrl('/ws'),
-  terminal: () => wsUrl('/api/terminal'),
+  terminal: (cwd?: string) => {
+    const base = wsUrl('/api/terminal');
+    return cwd ? `${base}?cwd=${encodeURIComponent(cwd)}` : base;
+  },
 };

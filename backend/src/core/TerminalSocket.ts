@@ -1,6 +1,8 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { spawn } from 'child_process';
 import os from 'os';
+import fs from 'fs';
+import { IncomingMessage } from 'http';
 
 /**
  * Bridges a WebSocket to a real shell child process.
@@ -13,13 +15,24 @@ export class TerminalSocket {
   }
 
   private setup() {
-    this.wss.on('connection', (ws: WebSocket) => {
+    this.wss.on('connection', (ws: WebSocket, req?: IncomingMessage) => {
       const isWin = os.platform() === 'win32';
       const shell = isWin ? 'cmd.exe' : (process.env.SHELL || 'bash');
       const args = isWin ? ['/Q', '/K', 'prompt $P$G$_'] : ['-i'];
+
+      // Resolve cwd: ?cwd=<absolute-path> takes precedence over user home.
+      let cwd = process.env.USERPROFILE || process.env.HOME || process.cwd();
+      try {
+        const url = new URL(req?.url || '', 'http://localhost');
+        const requested = url.searchParams.get('cwd');
+        if (requested && fs.existsSync(requested) && fs.statSync(requested).isDirectory()) {
+          cwd = requested;
+        }
+      } catch {}
+
       const child = spawn(shell, args, {
         env: { ...process.env, FORCE_COLOR: '1', TERM: 'xterm-256color' },
-        cwd: process.env.USERPROFILE || process.env.HOME || process.cwd(),
+        cwd,
         windowsHide: true,
       });
 
@@ -45,7 +58,7 @@ export class TerminalSocket {
         try { ws.close(); } catch {}
       });
 
-      send(`\x1b[1;32m[DevControl]\x1b[0m Terminal connected (${shell}). Type your commands.\r\n`);
+      send(`\x1b[1;32m[DevControl]\x1b[0m Terminal connected (${shell})\r\n  cwd: ${cwd}\r\n`);
     });
   }
 }

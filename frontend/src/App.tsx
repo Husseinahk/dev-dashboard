@@ -150,7 +150,7 @@ function AppInner() {
       id: 'terminal',
       label: 'Terminal',
       icon: <TermIcon size={13} />,
-      content: <TerminalPanel onClose={() => setBottomTab(null)} />,
+      content: <TerminalPanel onClose={() => setBottomTab(null)} cwd={selectedProject?.path} />,
     },
   ];
 

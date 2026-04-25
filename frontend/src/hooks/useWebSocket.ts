@@ -38,7 +38,7 @@ export function useWebSocket(url: string, onMessage: (msg: any) => void) {
 
   const send = useCallback((data: string | Uint8Array) => {
     const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) ws.send(data);
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(data as any);
   }, []);
 
   return { status, send };

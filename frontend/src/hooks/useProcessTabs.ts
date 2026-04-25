@@ -32,6 +32,10 @@ function reducer(state: State, action: Action): State {
       const tab: ProcessTab = existing ?? blankTab(ev.tabId);
       map.set(ev.tabId, {
         ...tab,
+        name: ev.name ?? tab.name,
+        projectId: ev.projectId ?? tab.projectId,
+        actionId: ev.actionId ?? tab.actionId,
+        port: ev.port ?? tab.port,
         status: ev.status,
         pid: ev.pid ?? tab.pid,
         exitCode: ev.exitCode ?? tab.exitCode,
