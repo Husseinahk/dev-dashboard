@@ -1,0 +1,281 @@
+{
+  "globalSettings": {
+    "port": 3030,
+    "openBrowserOnStart": true,
+    "nvmHome": "",
+    "defaultGroups": [
+      {
+        "name": "Git",
+        "actions": [
+          {
+            "id": "git-status",
+            "label": "Status",
+            "type": "one-shot",
+            "command": "git status"
+          },
+          {
+            "id": "git-pull",
+            "label": "Pull",
+            "type": "one-shot",
+            "command": "git pull"
+          },
+          {
+            "id": "git-fetch",
+            "label": "Fetch",
+            "type": "one-shot",
+            "command": "git fetch --all --prune"
+          },
+          {
+            "id": "git-branch",
+            "label": "Branches",
+            "type": "one-shot",
+            "command": "git branch -a"
+          },
+          {
+            "id": "git-log",
+            "label": "Log (last 20)",
+            "type": "one-shot",
+            "command": "git log --oneline -20 --graph --decorate"
+          }
+        ]
+      },
+      {
+        "name": "IDE",
+        "actions": [
+          {
+            "id": "open-vscode",
+            "label": "Open in VS Code",
+            "type": "open",
+            "command": "code ."
+          },
+          {
+            "id": "open-explorer",
+            "label": "Open in Explorer",
+            "type": "open",
+            "command": "explorer ."
+          }
+        ]
+      }
+    ]
+  },
+  "projects": [
+    {
+      "id": "sdc-senbjf",
+      "name": "SenBJF Schulvertrag",
+      "path": "C:\\Projects\\sdc\\sdc.SenBJF.Schulvertrag",
+      "nodeVersion": "14",
+      "groups": [
+        {
+          "name": "Backend",
+          "actions": [
+            {
+              "id": "start-api",
+              "label": "Start API",
+              "type": "long-running",
+              "command": "dotnet run",
+              "cwd": "src/sdc.SenBJF.Schulvertrag.api"
+            },
+            {
+              "id": "build-solution",
+              "label": "Build Solution",
+              "type": "one-shot",
+              "command": "dotnet build sdc.SenBJF.Schulvertrag.sln"
+            },
+            {
+              "id": "ef-add-migration",
+              "label": "EF Add Migration",
+              "type": "prompt",
+              "command": "dotnet ef migrations add {name} --project src/sdc.SenBJF.Schulvertrag.infrastructure --startup-project src/sdc.SenBJF.Schulvertrag.api --output-dir Persistence/EntityFrameworkCore/Model/Migrations",
+              "promptFor": [
+                {
+                  "name": "name",
+                  "label": "Migration Name",
+                  "placeholder": "e.g. 86_add_xyz"
+                }
+              ]
+            },
+            {
+              "id": "ef-list-migrations",
+              "label": "EF List Migrations",
+              "type": "one-shot",
+              "command": "dotnet ef migrations list --project src/sdc.SenBJF.Schulvertrag.infrastructure --startup-project src/sdc.SenBJF.Schulvertrag.api"
+            }
+          ]
+        },
+        {
+          "name": "Frontend",
+          "actions": [
+            {
+              "id": "start-fe",
+              "label": "Start Frontend",
+              "type": "long-running",
+              "command": "npm start",
+              "cwd": "src/sdc.SenBJF.Schulvertrag.client/ClientApp"
+            },
+            {
+              "id": "build-fe",
+              "label": "Build Frontend",
+              "type": "one-shot",
+              "command": "npx ng build",
+              "cwd": "src/sdc.SenBJF.Schulvertrag.client/ClientApp"
+            },
+            {
+              "id": "fe-install",
+              "label": "npm install",
+              "type": "one-shot",
+              "command": "npm install",
+              "cwd": "src/sdc.SenBJF.Schulvertrag.client/ClientApp"
+            }
+          ]
+        },
+        {
+          "name": "IDE",
+          "actions": [
+            {
+              "id": "open-vs",
+              "label": "Open in Visual Studio",
+              "type": "open",
+              "command": "devenv sdc.SenBJF.Schulvertrag.sln"
+            },
+            {
+              "id": "open-vscode",
+              "label": "Open in VS Code (ClientApp)",
+              "type": "open",
+              "command": "code .",
+              "cwd": "src/sdc.SenBJF.Schulvertrag.client/ClientApp"
+            },
+            {
+              "id": "open-explorer",
+              "label": "Open in Explorer",
+              "type": "open",
+              "command": "explorer ."
+            }
+          ]
+        }
+      ],
+      "quickLinks": [
+        {
+          "label": "Frontend",
+          "url": "http://localhost:4200"
+        },
+        {
+          "label": "Swagger",
+          "url": "http://localhost:5000/api-doc/index.html"
+        },
+        {
+          "label": "DevOps Repo",
+          "url": "https://dev.azure.com/sdundc/SenBJF/_git/sdc.SenBJF.Schulvertrag"
+        }
+      ]
+    },
+    {
+      "id": "sdc-sat",
+      "name": "SAT Fragenkatalog",
+      "path": "C:\\Projects\\sdc\\sdc.SAT.Fragenkatalog",
+      "nodeVersion": "14",
+      "groups": [
+        {
+          "name": "Backend",
+          "actions": [
+            {
+              "id": "start-api",
+              "label": "Start API",
+              "type": "long-running",
+              "command": "dotnet run",
+              "cwd": "src/sdc.SAT.Fragenkatalog.api"
+            },
+            {
+              "id": "build-solution",
+              "label": "Build Solution",
+              "type": "one-shot",
+              "command": "dotnet build sdc.SAT.Fragenkatalog.sln"
+            },
+            {
+              "id": "ef-add-migration",
+              "label": "EF Add Migration",
+              "type": "prompt",
+              "command": "dotnet ef migrations add {name} --project src/sdc.SAT.Fragenkatalog.infrastructure --startup-project src/sdc.SAT.Fragenkatalog.api --output-dir Persistence/EntityFrameworkCore/Model/Migrations",
+              "promptFor": [
+                {
+                  "name": "name",
+                  "label": "Migration Name",
+                  "placeholder": "e.g. 10_add_xyz"
+                }
+              ]
+            },
+            {
+              "id": "ef-list-migrations",
+              "label": "EF List Migrations",
+              "type": "one-shot",
+              "command": "dotnet ef migrations list --project src/sdc.SAT.Fragenkatalog.infrastructure --startup-project src/sdc.SAT.Fragenkatalog.api"
+            }
+          ]
+        },
+        {
+          "name": "Frontend",
+          "actions": [
+            {
+              "id": "start-fe",
+              "label": "Start Frontend",
+              "type": "long-running",
+              "command": "npm start",
+              "cwd": "src/sdc.SAT.Fragenkatalog.client/ClientApp"
+            },
+            {
+              "id": "build-fe",
+              "label": "Build Frontend",
+              "type": "one-shot",
+              "command": "npx ng build",
+              "cwd": "src/sdc.SAT.Fragenkatalog.client/ClientApp"
+            },
+            {
+              "id": "fe-install",
+              "label": "npm install",
+              "type": "one-shot",
+              "command": "npm install",
+              "cwd": "src/sdc.SAT.Fragenkatalog.client/ClientApp"
+            }
+          ]
+        },
+        {
+          "name": "IDE",
+          "actions": [
+            {
+              "id": "open-vs",
+              "label": "Open in Visual Studio",
+              "type": "open",
+              "command": "devenv sdc.SAT.Fragenkatalog.sln"
+            },
+            {
+              "id": "open-vscode",
+              "label": "Open in VS Code (ClientApp)",
+              "type": "open",
+              "command": "code .",
+              "cwd": "src/sdc.SAT.Fragenkatalog.client/ClientApp"
+            },
+            {
+              "id": "open-explorer",
+              "label": "Open in Explorer",
+              "type": "open",
+              "command": "explorer ."
+            }
+          ]
+        }
+      ],
+      "quickLinks": [
+        {
+          "label": "Frontend",
+          "url": "http://localhost:4200"
+        },
+        {
+          "label": "Swagger",
+          "url": "http://localhost:5000/api-doc/index.html"
+        },
+        {
+          "label": "DevOps Repo",
+          "url": "https://dev.azure.com/sdundc/SAT/_git/sdc.SAT.Fragenkatalog"
+        }
+      ]
+    }
+  ]
+}

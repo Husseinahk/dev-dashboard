@@ -1,88 +1,42 @@
-# =============================================================================
-# DevControl - Installer
-# Creates a Desktop shortcut (optional: Autostart + Start menu entry)
-# =============================================================================
+# DevControl V2 — installer / shortcut creator
+# Creates Desktop + Start menu shortcuts for start.bat and stop.bat.
 
 $ErrorActionPreference = 'Stop'
+$root      = Split-Path -Parent $MyInvocation.MyCommand.Path
+$startBat  = Join-Path $root 'start.bat'
+$stopBat   = Join-Path $root 'stop.bat'
+$iconPath  = Join-Path $root 'frontend\public\favicon.ico'  # optional, may not exist
 
-$scriptDir  = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$startBat   = Join-Path $scriptDir 'start.bat'
-$stopBat    = Join-Path $scriptDir 'stop.bat'
-$icoSource  = Join-Path $scriptDir 'devcontrol.ico'
-$desktopDir = [Environment]::GetFolderPath('Desktop')
-$startMenu  = [Environment]::GetFolderPath('Programs')
-$startupDir = [Environment]::GetFolderPath('Startup')
+if (-not (Test-Path $startBat)) { throw "start.bat not found at $startBat" }
+if (-not (Test-Path $stopBat))  { throw "stop.bat not found at $stopBat"  }
 
-function Write-Title {
-    Write-Host ""
-    Write-Host "===============================================" -ForegroundColor Cyan
-    Write-Host "  DevControl - Installer" -ForegroundColor Cyan
-    Write-Host "===============================================" -ForegroundColor Cyan
-    Write-Host ""
+$shell = New-Object -ComObject WScript.Shell
+
+function New-Shortcut($linkPath, $target, $args, $label) {
+    $sc = $shell.CreateShortcut($linkPath)
+    $sc.TargetPath = $target
+    $sc.Arguments  = $args
+    $sc.WorkingDirectory = Split-Path $target -Parent
+    $sc.Description = $label
+    if (Test-Path $iconPath) { $sc.IconLocation = "$iconPath,0" }
+    $sc.Save()
+    Write-Host "[OK]  $linkPath" -ForegroundColor Green
 }
 
-function New-DevControlShortcut {
-    param(
-        [string]$Target,
-        [string]$WorkingDir,
-        [string]$Location,
-        [string]$Name,
-        [string]$Description
-    )
-    $shell = New-Object -ComObject WScript.Shell
-    $lnkPath = Join-Path $Location ($Name + '.lnk')
-    $shortcut = $shell.CreateShortcut($lnkPath)
-    $shortcut.TargetPath = $Target
-    $shortcut.WorkingDirectory = $WorkingDir
-    $shortcut.Description = $Description
-    $shortcut.WindowStyle = 7  # Minimized
-    if (Test-Path $icoSource) {
-        $shortcut.IconLocation = $icoSource
-    }
-    $shortcut.Save()
-    Write-Host ("  OK -> " + $lnkPath) -ForegroundColor Green
-}
+# [1/2] Desktop
+$desktop = [Environment]::GetFolderPath('Desktop')
+New-Shortcut "$desktop\DevControl.lnk"      $startBat '' 'Start DevControl V2'
+New-Shortcut "$desktop\DevControl Stop.lnk" $stopBat  '' 'Stop DevControl V2'
 
-Write-Title
-
-if (-not (Test-Path $startBat)) {
-    Write-Host ("ERROR: start.bat not found in " + $scriptDir) -ForegroundColor Red
-    Read-Host "Press Enter to exit"
-    exit 1
-}
-
-Write-Host "[1/4] Desktop shortcuts (Start + Stop)..." -ForegroundColor Yellow
-New-DevControlShortcut -Target $startBat -WorkingDir $scriptDir -Location $desktopDir -Name 'DevControl' -Description 'DevControl Dashboard'
-if (Test-Path $stopBat) {
-    New-DevControlShortcut -Target $stopBat -WorkingDir $scriptDir -Location $desktopDir -Name 'DevControl - Stop' -Description 'Stop DevControl Dashboard'
-}
+# [2/2] Start menu
+$startMenu = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\DevControl"
+if (-not (Test-Path $startMenu)) { New-Item -ItemType Directory -Path $startMenu | Out-Null }
+New-Shortcut "$startMenu\DevControl.lnk"      $startBat '' 'Start DevControl V2'
+New-Shortcut "$startMenu\DevControl Stop.lnk" $stopBat  '' 'Stop DevControl V2'
 
 Write-Host ""
-Write-Host "[2/4] Start menu entries..." -ForegroundColor Yellow
-New-DevControlShortcut -Target $startBat -WorkingDir $scriptDir -Location $startMenu -Name 'DevControl' -Description 'DevControl Dashboard'
-if (Test-Path $stopBat) {
-    New-DevControlShortcut -Target $stopBat -WorkingDir $scriptDir -Location $startMenu -Name 'DevControl - Stop' -Description 'Stop DevControl Dashboard'
-}
-
+Write-Host "DevControl V2 shortcuts installed." -ForegroundColor Cyan
+Write-Host "  Start:  Desktop\DevControl.lnk      (or Start menu)"
+Write-Host "  Stop:   Desktop\DevControl Stop.lnk"
 Write-Host ""
-Write-Host "[3/4] Autostart on Windows startup?" -ForegroundColor Yellow
-$autostart = Read-Host "  Should DevControl auto-start with Windows? (y/n)"
-if ($autostart -match '^(j|y|ja|yes)$') {
-    New-DevControlShortcut -Target $startBat -WorkingDir $scriptDir -Location $startupDir -Name 'DevControl' -Description 'DevControl Dashboard (Autostart)'
-    Write-Host ""
-    Write-Host ("Autostart enabled. Remove: delete shortcut from " + $startupDir) -ForegroundColor Gray
-} else {
-    Write-Host "  -> skipped." -ForegroundColor Gray
-}
-
-Write-Host ""
-Write-Host "===============================================" -ForegroundColor Cyan
-Write-Host "  Installation complete!" -ForegroundColor Green
-Write-Host "===============================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Double-click the DevControl icon on your desktop" -ForegroundColor White
-Write-Host "or in the Start menu to launch the dashboard." -ForegroundColor White
-Write-Host ""
-Write-Host "URL: http://localhost:3030" -ForegroundColor Cyan
-Write-Host ""
-Read-Host "Press Enter to exit"
+Write-Host "Run start.bat to launch on http://localhost:3030" -ForegroundColor Yellow

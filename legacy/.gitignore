@@ -1,0 +1,23 @@
+node_modules/
+package-lock.json
+.env
+.env.local
+
+# User's personal config — keep projects.example.json committed instead
+projects.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/

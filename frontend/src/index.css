@@ -1,0 +1,171 @@
+@import "tailwindcss";
+
+/* ===========================================================================
+   DevControl V2 — Design Tokens
+   Dark, modern, glassmorphic. Inspired by Linear / Vercel / Raycast.
+   =========================================================================== */
+@theme {
+  /* Surface scale (deep space → glass) */
+  --color-bg-0: #07080c;        /* page background, deepest */
+  --color-bg-1: #0b0d14;        /* base panels */
+  --color-bg-2: #11141d;        /* elevated cards */
+  --color-bg-3: #181c28;        /* hover */
+  --color-bg-4: #232839;        /* active/selected */
+
+  /* Borders & dividers (subtle, low contrast) */
+  --color-line-soft: rgba(255, 255, 255, 0.05);
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-strong: rgba(255, 255, 255, 0.14);
+
+  /* Text */
+  --color-text-1: #f4f5f8;      /* primary */
+  --color-text-2: #b9bdcc;      /* secondary */
+  --color-text-3: #7a8094;      /* muted */
+  --color-text-4: #4f5468;      /* dim */
+
+  /* Brand / accent (electric violet → cyan) */
+  --color-brand-300: #a78bfa;
+  --color-brand-400: #8b7cff;
+  --color-brand-500: #6d63f4;
+  --color-brand-600: #5046e5;
+
+  --color-cyan-400: #22d3ee;
+  --color-cyan-500: #06b6d4;
+
+  /* Semantic */
+  --color-success: #10b981;
+  --color-success-glow: rgba(16, 185, 129, 0.45);
+  --color-warn: #f59e0b;
+  --color-warn-glow: rgba(245, 158, 11, 0.45);
+  --color-danger: #ef4444;
+  --color-danger-glow: rgba(239, 68, 68, 0.5);
+  --color-info: #38bdf8;
+}
+
+/* ---------- Base ---------- */
+html, body, #root { height: 100%; }
+
+body {
+  background: var(--color-bg-0);
+  color: var(--color-text-1);
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+  /* Ambient gradient mesh */
+  background-image:
+    radial-gradient(at 8% 0%, rgba(109, 99, 244, 0.10), transparent 45%),
+    radial-gradient(at 92% 100%, rgba(34, 211, 238, 0.08), transparent 50%),
+    radial-gradient(at 50% 50%, rgba(167, 139, 250, 0.04), transparent 60%);
+}
+
+/* ---------- Reusable surface utilities ---------- */
+.surface {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent), var(--color-bg-1);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+}
+.surface-2 {
+  background: linear-gradient(180deg, rgba(255,255,255,0.025), transparent), var(--color-bg-2);
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+}
+.glass {
+  background: rgba(17, 20, 29, 0.65);
+  backdrop-filter: saturate(140%) blur(18px);
+  -webkit-backdrop-filter: saturate(140%) blur(18px);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+}
+
+/* Hairline divider with gradient fade */
+.hr-fade {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-line-strong), transparent);
+}
+
+/* ---------- Status dots with glow ---------- */
+.dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
+.dot-running { background: var(--color-success); box-shadow: 0 0 0 3px rgba(16,185,129,0.18), 0 0 12px var(--color-success-glow); animation: pulse-glow 2s ease-in-out infinite; }
+.dot-starting { background: var(--color-warn); box-shadow: 0 0 0 3px rgba(245,158,11,0.18), 0 0 12px var(--color-warn-glow); animation: pulse-glow 1.2s ease-in-out infinite; }
+.dot-crashed { background: var(--color-danger); box-shadow: 0 0 0 3px rgba(239,68,68,0.18), 0 0 12px var(--color-danger-glow); }
+.dot-idle { background: var(--color-text-4); }
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ---------- Button base (primitives override but inherit) ---------- */
+button { font: inherit; cursor: pointer; }
+button:focus-visible {
+  outline: 2px solid var(--color-brand-400);
+  outline-offset: 2px;
+}
+
+/* ---------- Scrollbar (slim, modern) ---------- */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); background-clip: padding-box; }
+
+/* ---------- Animations library ---------- */
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slide-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slide-down { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes scale-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+.anim-fade   { animation: fade-in 200ms ease-out both; }
+.anim-up     { animation: slide-up 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.anim-down   { animation: slide-down 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.anim-pop    { animation: scale-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+/* Shimmer for loading skeletons */
+.skeleton {
+  background: linear-gradient(90deg, var(--color-bg-2) 0%, var(--color-bg-3) 50%, var(--color-bg-2) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 8px;
+}
+
+/* ---------- Gradient text (brand) ---------- */
+.text-gradient {
+  background: linear-gradient(135deg, var(--color-brand-300), var(--color-cyan-400));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- Focus ring helper ---------- */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-brand-400);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* ---------- Selection ---------- */
+::selection { background: rgba(109, 99, 244, 0.35); color: var(--color-text-1); }
+
+/* ---------- Kbd chip ---------- */
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  padding: 0 0.35rem;
+  font-size: 0.7rem;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  color: var(--color-text-2);
+  background: var(--color-bg-2);
+  border: 1px solid var(--color-line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  line-height: 1.4rem;
+}

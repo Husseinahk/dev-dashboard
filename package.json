@@ -1,13 +1,14 @@
 {
   "name": "dev-dashboard",
   "version": "1.0.0",
-  "description": "Local web-dashboard for managing multiple dev projects (Husseins Tools)",
-  "main": "server.js",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.21.0",
-    "ws": "^8.18.0"
+    "dev": "npm run dev --workspaces",
+    "build": "npm run build --workspaces --if-present",
+    "start": "npm --prefix backend start"
   }
 }
