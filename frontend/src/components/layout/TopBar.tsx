@@ -1,4 +1,4 @@
-import { Activity, Command, RefreshCw, Square } from 'lucide-react';
+import { Activity, Command, RefreshCw, Settings, Square } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Kbd } from '../ui/Kbd';
 import { Tooltip } from '../ui/Tooltip';
@@ -8,9 +8,10 @@ interface Props {
   onRescan: () => void;
   onStopAll: () => void;
   onOpenPalette: () => void;
+  onOpenSettings: () => void;
 }
 
-export function TopBar({ wsStatus, onRescan, onStopAll, onOpenPalette }: Props) {
+export function TopBar({ wsStatus, onRescan, onStopAll, onOpenPalette, onOpenSettings }: Props) {
   const wsLabel = {
     open: { dot: 'bg-emerald-400', label: 'live' },
     connecting: { dot: 'bg-amber-400 animate-pulse', label: 'connecting' },
@@ -54,6 +55,9 @@ export function TopBar({ wsStatus, onRescan, onStopAll, onOpenPalette }: Props) 
         </Tooltip>
         <Tooltip label="Stop all running processes">
           <Button variant="ghost" size="sm" icon={<Square size={14} />} onClick={onStopAll} aria-label="Stop all" />
+        </Tooltip>
+        <Tooltip label="Settings">
+          <Button variant="ghost" size="sm" icon={<Settings size={14} />} onClick={onOpenSettings} aria-label="Settings" />
         </Tooltip>
       </div>
     </header>

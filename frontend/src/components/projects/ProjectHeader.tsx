@@ -40,7 +40,7 @@ export function ProjectHeader({ project }: { project: Project }) {
             variant="ghost"
             size="sm"
             icon={<Code2 size={14} />}
-            onClick={() => api.runCustom({ command: `code "${project.path}"`, cwd: project.path, name: 'open-vscode' })}
+            onClick={() => api.runCustom({ projectId: project.id, command: `code "${project.path}"`, cwd: project.path, label: 'Open VS Code' })}
           >
             VS Code
           </Button>

@@ -16,6 +16,7 @@ import { RunningTabs } from './components/system/RunningTabs';
 
 import { CommandPalette } from './components/palette/CommandPalette';
 import { PromptDialog } from './components/actions/PromptDialog';
+import { SettingsModal } from './components/settings/SettingsModal';
 import { ToastContainer } from './components/toast/ToastContainer';
 
 import { ToastProvider, useToastApi } from './hooks/useToast';
@@ -39,6 +40,7 @@ function AppInner() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [system, setSystem] = useState<SystemSnapshot | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [bottomTab, setBottomTab] = useState<string | null>('running');
   const [activeLogTabId, setActiveLogTabId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState<{ project: string; action: ProjectAction } | null>(null);
@@ -114,6 +116,7 @@ function AppInner() {
 
   // ---------- Hotkeys ----------
   useHotkey('mod+k', e => { e.preventDefault(); setPaletteOpen(true); });
+  useHotkey('mod+,', e => { e.preventDefault(); setSettingsOpen(true); });
   useHotkey('mod+`', e => { e.preventDefault(); setBottomTab(b => b === 'terminal' ? null : 'terminal'); });
   useHotkey('esc', () => { if (paletteOpen) setPaletteOpen(false); }, [paletteOpen]);
 
@@ -161,6 +164,7 @@ function AppInner() {
         onRescan={() => { rescan(); toast.info('Rescanning…'); }}
         onStopAll={stopAll}
         onOpenPalette={() => setPaletteOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
 
       <div className="flex-1 flex min-h-0">
@@ -217,6 +221,11 @@ function AppInner() {
           if (prompt) runAction(prompt.project, prompt.action, vars);
           setPrompt(null);
         }}
+      />
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onChanged={refresh}
       />
       <ToastContainer />
     </div>

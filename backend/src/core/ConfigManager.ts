@@ -12,6 +12,8 @@ export interface ProjectConfig {
 
 export interface DevControlConfig {
   scanPaths: string[];
+  /** Project ids the user has chosen to hide from the workspace list. */
+  hiddenProjects: string[];
   pinnedActions: Record<string, string[]>;
   projectConfigs: Record<string, ProjectConfig>;
   apiCredentials?: Record<string, any>;
@@ -29,6 +31,7 @@ export class ConfigManager {
   private configPath: string;
   public config: DevControlConfig = {
     scanPaths: [],
+    hiddenProjects: [],
     pinnedActions: {},
     projectConfigs: {},
     apiCredentials: {},
@@ -51,6 +54,7 @@ export class ConfigManager {
         const loaded = JSON.parse(fs.readFileSync(this.configPath, 'utf-8'));
         this.config = {
           scanPaths: loaded.scanPaths || [],
+          hiddenProjects: loaded.hiddenProjects || [],
           pinnedActions: loaded.pinnedActions || {},
           projectConfigs: loaded.projectConfigs || {},
           apiCredentials: loaded.apiCredentials || {},
@@ -87,6 +91,23 @@ export class ConfigManager {
 
   removeScanPath(p: string) {
     this.config.scanPaths = this.config.scanPaths.filter(x => x !== p);
+    this.save();
+  }
+
+  hideProject(id: string) {
+    if (!this.config.hiddenProjects.includes(id)) {
+      this.config.hiddenProjects.push(id);
+      this.save();
+    }
+  }
+
+  showProject(id: string) {
+    this.config.hiddenProjects = this.config.hiddenProjects.filter(x => x !== id);
+    this.save();
+  }
+
+  setHiddenProjects(ids: string[]) {
+    this.config.hiddenProjects = [...new Set(ids)];
     this.save();
   }
 

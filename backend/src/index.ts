@@ -89,7 +89,50 @@ function buildProjects() {
 
 // ====== Workspaces ======
 app.get('/api/workspaces', (_req, res) => {
-  res.json({ workspaces: buildProjects() });
+  const hidden = new Set(configManager.config.hiddenProjects || []);
+  res.json({ workspaces: buildProjects().filter(p => !hidden.has(p.id)) });
+});
+
+/** Returns ALL discovered projects (incl. hidden) so the Settings UI can manage visibility. */
+app.get('/api/workspaces/all', (_req, res) => {
+  const hidden = new Set(configManager.config.hiddenProjects || []);
+  const all = buildProjects().map(p => ({
+    id: p.id,
+    name: p.name,
+    path: p.path,
+    type: p.type,
+    source: (p as any).source,
+    actionCount: p.actions.length,
+    hidden: hidden.has(p.id),
+  }));
+  res.json({ projects: all });
+});
+
+app.post('/api/workspaces/hide', (req, res) => {
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ error: 'id required' });
+  configManager.hideProject(id);
+  res.json({ success: true, hiddenProjects: configManager.config.hiddenProjects });
+});
+
+app.post('/api/workspaces/show', (req, res) => {
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ error: 'id required' });
+  configManager.showProject(id);
+  res.json({ success: true, hiddenProjects: configManager.config.hiddenProjects });
+});
+
+app.post('/api/workspaces/hidden', (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids array required' });
+  configManager.setHiddenProjects(ids);
+  res.json({ success: true, hiddenProjects: configManager.config.hiddenProjects });
+});
+
+/** Re-scan trigger — alias used by frontend api.rescan(). */
+app.post('/api/workspaces/rescan', (_req, res) => {
+  scanner.setRoots(configManager.getPaths());
+  res.json({ success: true, count: buildProjects().length });
 });
 
 app.get('/api/workspaces/:id', (req, res) => {
