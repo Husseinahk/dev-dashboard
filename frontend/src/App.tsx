@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Terminal as TermIcon, ListTree, FileText } from 'lucide-react';
+import { Terminal as TermIcon, ListTree, FileText, GitBranch } from 'lucide-react';
 
 import { TopBar } from './components/layout/TopBar';
 import { Sidebar } from './components/layout/Sidebar';
@@ -13,10 +13,12 @@ import { LogViewer } from './components/logs/LogViewer';
 import { TerminalPanel } from './components/terminal/TerminalPanel';
 import { SystemMonitor } from './components/system/SystemMonitor';
 import { RunningTabs } from './components/system/RunningTabs';
+import { GitPanel } from './components/git/GitPanel';
 
 import { CommandPalette } from './components/palette/CommandPalette';
 import { PromptDialog } from './components/actions/PromptDialog';
 import { SettingsModal } from './components/settings/SettingsModal';
+import { AddProjectModal } from './components/projects/AddProjectModal';
 import { ToastContainer } from './components/toast/ToastContainer';
 
 import { ToastProvider, useToastApi } from './hooks/useToast';
@@ -41,6 +43,7 @@ function AppInner() {
   const [system, setSystem] = useState<SystemSnapshot | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   const [bottomTab, setBottomTab] = useState<string | null>('running');
   const [activeLogTabId, setActiveLogTabId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState<{ project: string; action: ProjectAction } | null>(null);
@@ -117,6 +120,7 @@ function AppInner() {
   // ---------- Hotkeys ----------
   useHotkey('mod+k', e => { e.preventDefault(); setPaletteOpen(true); });
   useHotkey('mod+,', e => { e.preventDefault(); setSettingsOpen(true); });
+  useHotkey('mod+n', e => { e.preventDefault(); setAddOpen(true); });
   useHotkey('mod+`', e => { e.preventDefault(); setBottomTab(b => b === 'terminal' ? null : 'terminal'); });
   useHotkey('esc', () => { if (paletteOpen) setPaletteOpen(false); }, [paletteOpen]);
 
@@ -150,6 +154,14 @@ function AppInner() {
       content: activeLogTab ? <LogViewer tab={activeLogTab} /> : <div className="p-6 text-sm text-[var(--color-text-3)]">Select a process to view logs.</div>,
     },
     {
+      id: 'git',
+      label: 'Git',
+      icon: <GitBranch size={13} />,
+      content: selectedProject
+        ? <GitPanel projectId={selectedProject.id} />
+        : <div className="p-6 text-sm text-[var(--color-text-3)]">Select a project to manage its repository.</div>,
+    },
+    {
       id: 'terminal',
       label: 'Terminal',
       icon: <TermIcon size={13} />,
@@ -173,6 +185,18 @@ function AppInner() {
           tabs={tabs}
           selectedId={selectedProjectId}
           onSelect={setSelectedProjectId}
+          onAddProject={() => setAddOpen(true)}
+          onRemoveProject={async (id) => {
+            if (!confirm('Remove this project from the workspace?')) return;
+            try {
+              await api.removeProject(id);
+              if (selectedProjectId === id) setSelectedProjectId(null);
+              await refresh();
+              toast.info('Project removed');
+            } catch (e: any) {
+              toast.danger('Remove failed', e?.message);
+            }
+          }}
         />
 
         <main className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -226,6 +250,15 @@ function AppInner() {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         onChanged={refresh}
+      />
+      <AddProjectModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onAdded={async (id) => {
+          await refresh();
+          setSelectedProjectId(id);
+          toast.success('Project added');
+        }}
       />
       <ToastContainer />
     </div>
