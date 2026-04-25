@@ -17,7 +17,9 @@ export class TerminalSocket {
   private setup() {
     this.wss.on('connection', (ws: WebSocket, req?: IncomingMessage) => {
       const isWin = os.platform() === 'win32';
-      const shell = isWin ? 'cmd.exe' : (process.env.SHELL || 'bash');
+      const shell = isWin
+        ? (process.env.ComSpec || `${process.env.SystemRoot || 'C:\\Windows'}\\System32\\cmd.exe`)
+        : (process.env.SHELL || 'bash');
       const args = isWin ? ['/Q', '/K', 'prompt $P$G$_'] : ['-i'];
 
       // Resolve cwd: ?cwd=<absolute-path> takes precedence over user home.

@@ -80,8 +80,27 @@ export class ProcessManager {
     const env = this.nodeResolver.buildEnv(opts.nodeVersion, { ...process.env, ...(opts.env || {}) });
 
     const isWin = os.platform() === 'win32';
-    const shell = isWin ? 'cmd.exe' : 'bash';
-    const args = isWin ? ['/c', command] : ['-c', command];
+    // On Windows, the env we pass to spawn doesn't always include System32, so
+    // resolving "cmd.exe" via PATH can fail with ENOENT. Use ComSpec (always
+    // absolute) or a hard-coded fallback so the shell is always findable.
+    const shell = isWin
+      ? (process.env.ComSpec || `${process.env.SystemRoot || 'C:\\Windows'}\\System32\\cmd.exe`)
+      : 'bash';
+    const args = isWin ? ['/d', '/s', '/c', command] : ['-c', command];
+
+    // Make sure the child env always has System32 on PATH so child commands
+    // (where, taskkill, npm.cmd shims, etc.) work even if the parent env was
+    // stripped down by NodeResolver or callers.
+    if (isWin) {
+      const sys32 = `${process.env.SystemRoot || 'C:\\Windows'}\\System32`;
+      const sysRoot = process.env.SystemRoot || 'C:\\Windows';
+      const cur = env.PATH || env.Path || '';
+      if (!cur.toLowerCase().includes(sys32.toLowerCase())) {
+        const merged = `${sys32};${sysRoot};${cur}`;
+        env.PATH = merged;
+        env.Path = merged;
+      }
+    }
 
     const banner = this.banner(opts);
 
