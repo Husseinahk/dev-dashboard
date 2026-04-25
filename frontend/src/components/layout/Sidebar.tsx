@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronRight, Folder, Search } from 'lucide-react';
+import { ChevronRight, Folder, Plus, Search, Trash2 } from 'lucide-react';
 import type { Project, ProcessTab } from '../../types';
 import { Input } from '../ui/Input';
 import { StatusDot } from '../ui/StatusDot';
@@ -10,9 +10,11 @@ interface Props {
   tabs: ProcessTab[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onAddProject?: () => void;
+  onRemoveProject?: (id: string) => void;
 }
 
-export function Sidebar({ projects, tabs, selectedId, onSelect }: Props) {
+export function Sidebar({ projects, tabs, selectedId, onSelect, onAddProject, onRemoveProject }: Props) {
   const [filter, setFilter] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
@@ -46,14 +48,25 @@ export function Sidebar({ projects, tabs, selectedId, onSelect }: Props) {
 
   return (
     <aside className="w-72 shrink-0 flex flex-col border-r border-[var(--color-line)] bg-[var(--color-bg-1)]/40">
-      {/* Filter */}
-      <div className="p-3 border-b border-[var(--color-line)]">
-        <Input
-          icon={<Search size={14} />}
-          placeholder="Filter projects…"
-          value={filter}
-          onChange={e => setFilter(e.target.value)}
-        />
+      {/* Filter + Add */}
+      <div className="p-3 border-b border-[var(--color-line)] flex items-center gap-2">
+        <div className="flex-1 min-w-0">
+          <Input
+            icon={<Search size={14} />}
+            placeholder="Filter projects…"
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+          />
+        </div>
+        {onAddProject && (
+          <button
+            onClick={onAddProject}
+            title="Add project (Ctrl+N)"
+            className="shrink-0 h-9 w-9 flex items-center justify-center rounded-md bg-[var(--color-brand-500)]/15 text-[var(--color-brand-300)] hover:bg-[var(--color-brand-500)]/25 hover:text-[var(--color-text-1)] transition-colors shadow-[inset_0_0_0_1px_var(--color-brand-500)]/40"
+          >
+            <Plus size={16} />
+          </button>
+        )}
       </div>
 
       {/* Groups */}
@@ -81,11 +94,11 @@ export function Sidebar({ projects, tabs, selectedId, onSelect }: Props) {
                       const tab = statusByProject.get(p.id);
                       const active = p.id === selectedId;
                       return (
-                        <li key={p.id}>
+                        <li key={p.id} className="relative group/row">
                           <button
                             onClick={() => onSelect(p.id)}
                             className={cn(
-                              'group w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-all',
+                              'group w-full flex items-center gap-2.5 px-2.5 py-1.5 pr-8 rounded-md text-sm transition-all',
                               active
                                 ? 'bg-[var(--color-brand-500)]/15 text-[var(--color-text-1)] shadow-[inset_0_0_0_1px_var(--color-brand-500)]'
                                 : 'text-[var(--color-text-2)] hover:bg-white/5 hover:text-[var(--color-text-1)]',
@@ -95,6 +108,15 @@ export function Sidebar({ projects, tabs, selectedId, onSelect }: Props) {
                             <span className="flex-1 truncate text-left">{p.name}</span>
                             {tab && <StatusDot status={tab.status} />}
                           </button>
+                          {onRemoveProject && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onRemoveProject(p.id); }}
+                              title="Remove project"
+                              className="absolute right-1.5 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded text-[var(--color-text-4)] hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover/row:opacity-100 transition-opacity"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
                         </li>
                       );
                     })}

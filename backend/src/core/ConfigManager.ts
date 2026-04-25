@@ -18,6 +18,11 @@ export interface DevControlConfig {
   projectConfigs: Record<string, ProjectConfig>;
   apiCredentials?: Record<string, any>;
   apiCollections?: Record<string, any>;
+  /** Git provider integrations (PATs, org/project info) — stored locally, plain JSON. */
+  integrations?: {
+    github?: { pat?: string; user?: string };
+    azureDevOps?: { pat?: string; organization?: string; project?: string };
+  };
   globalSettings?: {
     nvmHome?: string;
     theme?: string;
@@ -59,6 +64,7 @@ export class ConfigManager {
           projectConfigs: loaded.projectConfigs || {},
           apiCredentials: loaded.apiCredentials || {},
           apiCollections: loaded.apiCollections || {},
+          integrations: loaded.integrations || {},
           globalSettings: {
             notificationsOnReady: true,
             notificationsOnCrash: true,

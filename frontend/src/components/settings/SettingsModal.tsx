@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Eye, EyeOff, FolderPlus, Plus, Trash2, FolderOpen, Settings as Cog, Layers } from 'lucide-react';
+import { Eye, EyeOff, FolderPlus, Plus, Trash2, FolderOpen, Settings as Cog, Layers, Cloud, Check, X } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -23,7 +23,7 @@ interface Props {
   onChanged?: () => void;
 }
 
-type TabId = 'workspaces' | 'projects' | 'general';
+type TabId = 'workspaces' | 'projects' | 'integrations' | 'general';
 
 export function SettingsModal({ open, onClose, onChanged }: Props) {
   const [tab, setTab] = useState<TabId>('workspaces');
@@ -34,17 +34,56 @@ export function SettingsModal({ open, onClose, onChanged }: Props) {
   const [globalSettings, setGlobalSettings] = useState<any>({});
   const [loading, setLoading] = useState(false);
 
+  // Integrations state
+  const [integrations, setIntegrations] = useState<any>({ github: { connected: false }, azureDevOps: { connected: false } });
+  const [ghPat, setGhPat] = useState('');
+  const [azPat, setAzPat] = useState('');
+  const [azOrg, setAzOrg] = useState('');
+  const [azProject, setAzProject] = useState('');
+  const [intMessage, setIntMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const [cfg, all] = await Promise.all([api.getConfig(), api.getAllWorkspaces()]);
+      const [cfg, all, ints] = await Promise.all([api.getConfig(), api.getAllWorkspaces(), api.getIntegrations()]);
       setScanPaths(cfg.scanPaths || []);
       setGlobalSettings(cfg.globalSettings || {});
       setProjects(all.projects || []);
+      setIntegrations(ints || {});
+      if (ints?.azureDevOps) {
+        setAzOrg(ints.azureDevOps.organization || '');
+        setAzProject(ints.azureDevOps.project || '');
+      }
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const saveGithub = async () => {
+    setIntMessage(null);
+    try {
+      const r = await api.setGithub(ghPat.trim());
+      setIntMessage({ kind: 'ok', text: `Connected as ${r.user?.login}` });
+      setGhPat('');
+      await reload();
+      onChanged?.();
+    } catch (e: any) { setIntMessage({ kind: 'err', text: e?.message || 'Failed' }); }
+  };
+
+  const removeGithub = async () => { await api.removeGithub(); await reload(); onChanged?.(); setIntMessage(null); };
+
+  const saveAzure = async () => {
+    setIntMessage(null);
+    try {
+      const r = await api.setAzure(azPat.trim(), azOrg.trim(), azProject.trim() || undefined);
+      setIntMessage({ kind: 'ok', text: `Connected as ${r.user?.displayName}` });
+      setAzPat('');
+      await reload();
+      onChanged?.();
+    } catch (e: any) { setIntMessage({ kind: 'err', text: e?.message || 'Failed' }); }
+  };
+
+  const removeAzure = async () => { await api.removeAzure(); await reload(); onChanged?.(); setIntMessage(null); };
 
   useEffect(() => {
     if (open) reload();
@@ -98,6 +137,7 @@ export function SettingsModal({ open, onClose, onChanged }: Props) {
   const tabs: { id: TabId; label: string; icon: any; badge?: string | number }[] = [
     { id: 'workspaces', label: 'Scan Paths', icon: FolderOpen, badge: scanPaths.length },
     { id: 'projects', label: 'Projects', icon: Layers, badge: `${visibleCount}/${projects.length}` },
+    { id: 'integrations', label: 'Integrations', icon: Cloud, badge: (integrations.github?.connected ? 1 : 0) + (integrations.azureDevOps?.connected ? 1 : 0) || undefined },
     { id: 'general', label: 'General', icon: Cog },
   ];
 
@@ -245,12 +285,145 @@ export function SettingsModal({ open, onClose, onChanged }: Props) {
             </section>
           )}
 
+          {tab === 'integrations' && (
+            <section className="space-y-5">
+              <header>
+                <h3 className="text-sm font-semibold">Git provider integrations</h3>
+                <p className="text-xs text-[var(--color-text-3)] mt-0.5">
+                  Connect via Personal Access Tokens. Tokens are stored locally in <code>%USERPROFILE%\.devcontrol\config.json</code>.
+                  Once connected, you can browse and clone repos from the Add Project modal.
+                </p>
+              </header>
+
+              {intMessage && (
+                <div className={cn(
+                  'flex items-start gap-2 px-3 py-2 rounded-lg border text-xs',
+                  intMessage.kind === 'ok'
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+                    : 'border-rose-500/30 bg-rose-500/10 text-rose-200',
+                )}>
+                  {intMessage.kind === 'ok' ? <Check size={13} className="mt-0.5" /> : <X size={13} className="mt-0.5" />}
+                  <span>{intMessage.text}</span>
+                </div>
+              )}
+
+              {/* GitHub */}
+              <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-1)]/40 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center size-5 rounded bg-white/10 text-white text-[10px] font-bold">GH</span>
+                  <span className="text-sm font-semibold flex-1">GitHub</span>
+                  {integrations.github?.connected ? (
+                    <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300">
+                      Connected{integrations.github.user ? ` · ${integrations.github.user}` : ''}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] px-2 py-0.5 rounded bg-[var(--color-bg-3)] text-[var(--color-text-3)]">Not connected</span>
+                  )}
+                </div>
+                <p className="text-[11px] text-[var(--color-text-3)]">
+                  Create a PAT at <code>github.com/settings/tokens</code> with the <strong>repo</strong> scope.
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    type="password"
+                    placeholder="ghp_…"
+                    value={ghPat}
+                    onChange={e => setGhPat(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button variant="primary" size="sm" onClick={saveGithub} disabled={!ghPat.trim()}>
+                    {integrations.github?.connected ? 'Replace' : 'Connect'}
+                  </Button>
+                  {integrations.github?.connected && (
+                    <Button variant="ghost" size="sm" icon={<Trash2 size={13} />} onClick={removeGithub}>Disconnect</Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Azure DevOps */}
+              <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-1)]/40 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Cloud size={14} className="text-blue-300" />
+                  <span className="text-sm font-semibold flex-1">Azure DevOps</span>
+                  {integrations.azureDevOps?.connected ? (
+                    <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300">
+                      Connected · {integrations.azureDevOps.organization}
+                      {integrations.azureDevOps.project ? ` / ${integrations.azureDevOps.project}` : ''}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] px-2 py-0.5 rounded bg-[var(--color-bg-3)] text-[var(--color-text-3)]">Not connected</span>
+                  )}
+                </div>
+                <p className="text-[11px] text-[var(--color-text-3)]">
+                  Create a PAT at <code>dev.azure.com/&lt;org&gt;/_usersSettings/tokens</code> with <strong>Code: Read</strong>.
+                  Project is optional — leave blank to list repos from all projects in the org.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    placeholder="organization (e.g. sdundc)"
+                    value={azOrg}
+                    onChange={e => setAzOrg(e.target.value)}
+                    onBlur={() => {
+                      // Strip pasted full URLs → just keep the org slug
+                      let s = azOrg.trim()
+                        .replace(/^https?:\/\//i, '')
+                        .replace(/^dev\.azure\.com\//i, '')
+                        .replace(/^[^/]*\.visualstudio\.com\/?/i, '')
+                        .replace(/^\/+/g, '').replace(/\/+$/g, '');
+                      const parts = s.split('/').filter(Boolean);
+                      setAzOrg(parts[0] || '');
+                      if (!azProject && parts[1]) setAzProject(parts[1]);
+                    }}
+                  />
+                  <Input placeholder="project (optional)" value={azProject} onChange={e => setAzProject(e.target.value)} />
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    type="password"
+                    placeholder="Azure DevOps PAT"
+                    value={azPat}
+                    onChange={e => setAzPat(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button variant="primary" size="sm" onClick={saveAzure} disabled={!azPat.trim() || !azOrg.trim()}>
+                    {integrations.azureDevOps?.connected ? 'Replace' : 'Connect'}
+                  </Button>
+                  {integrations.azureDevOps?.connected && (
+                    <Button variant="ghost" size="sm" icon={<Trash2 size={13} />} onClick={removeAzure}>Disconnect</Button>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
           {tab === 'general' && (
             <section className="space-y-4">
               <header>
                 <h3 className="text-sm font-semibold">General</h3>
                 <p className="text-xs text-[var(--color-text-3)] mt-0.5">Global preferences.</p>
               </header>
+
+              <Field label="Workspace mode" hint="How projects are populated. 'Manual' only shows projects you add via the + button. 'Scan' uses the auto-discovery from Scan Paths. 'Both' merges them.">
+                <div className="flex gap-1 rounded-md bg-[var(--color-bg-1)]/40 border border-[var(--color-line)] p-1 w-fit">
+                  {(['manual', 'scan', 'both'] as const).map(m => {
+                    const active = (globalSettings.workspaceMode || 'manual') === m;
+                    return (
+                      <button
+                        key={m}
+                        onClick={() => setGlobalSettings({ ...globalSettings, workspaceMode: m })}
+                        className={cn(
+                          'px-3 h-7 rounded text-xs font-medium capitalize transition',
+                          active
+                            ? 'bg-[var(--color-brand-500)]/20 text-[var(--color-text-1)] shadow-[inset_0_0_0_1px_var(--color-brand-500)]'
+                            : 'text-[var(--color-text-3)] hover:text-[var(--color-text-1)]',
+                        )}
+                      >
+                        {m}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Field>
 
               <Field label="NVM home" hint="Override the path to NVM-Windows install. Leave blank for auto-detect (%APPDATA%\nvm).">
                 <Input
